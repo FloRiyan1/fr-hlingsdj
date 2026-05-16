@@ -1,6 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
+import './config.ts';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer as createHttpServer } from 'http';
