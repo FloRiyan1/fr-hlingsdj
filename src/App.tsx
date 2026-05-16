@@ -351,6 +351,7 @@ export default function App() {
       if (res.ok) {
         setSearchResults(data);
       } else {
+        console.error('Spotify Search API Error:', data);
         setError(data.details ? `Spotify Suche: ${data.details}` : (data.error || 'Suche fehlgeschlagen.'));
       }
     } catch (err) {

@@ -230,36 +230,45 @@ if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
     console.warn('WARNING: Spotify credentials are not fully configured in environment variables.');
 }
 
+async function refreshAdminToken(db: any) {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+        console.error('Spotify token refresh FAILED: Client ID or Secret missing in environment variables.');
+        return null;
+    }
+    
+    console.log('Spotify: Refreshing admin token...');
+    try {
+        const response = await axios.post('https://accounts.spotify.com/api/token', new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: db.adminToken.refreshToken,
+            client_id: SPOTIFY_CLIENT_ID,
+            client_secret: SPOTIFY_CLIENT_SECRET,
+        }), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        const { access_token, expires_in, refresh_token: new_refresh_token } = response.data;
+        db.adminToken.accessToken = access_token;
+        db.adminToken.expiresAt = Date.now() + (expires_in * 1000) - 60000;
+        if (new_refresh_token) db.adminToken.refreshToken = new_refresh_token;
+        saveDB(db);
+        console.log('Spotify: Token successfully refreshed.');
+        return access_token;
+    } catch (error: any) {
+        console.error('Spotify: ERROR refreshing token:', error.response?.data || error.message);
+        return null;
+    }
+}
+
 async function getAdminSpotifyToken() {
     const db = getDB();
-    if (!db.adminToken) return null;
+    if (!db.adminToken) {
+        console.warn('Spotify: Request for admin token but no token stored in DB.');
+        return null;
+    }
 
-    // Check if token needs refresh
     if (Date.now() > db.adminToken.expiresAt) {
-        if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-            console.error('Cannot refresh token: Spotify credentials missing');
-            return null;
-        }
-        try {
-            const response = await axios.post('https://accounts.spotify.com/api/token', new URLSearchParams({
-                grant_type: 'refresh_token',
-                refresh_token: db.adminToken.refreshToken,
-                client_id: SPOTIFY_CLIENT_ID,
-                client_secret: SPOTIFY_CLIENT_SECRET,
-            }), {
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-
-            const { access_token, expires_in, refresh_token: new_refresh_token } = response.data;
-            db.adminToken.accessToken = access_token;
-            db.adminToken.expiresAt = Date.now() + (expires_in * 1000) - 60000; // 1 min buffer
-            if (new_refresh_token) db.adminToken.refreshToken = new_refresh_token;
-            saveDB(db);
-            return access_token;
-        } catch (error) {
-            console.error('Failed to refresh admin token:', error);
-            return null;
-        }
+        return await refreshAdminToken(db);
     }
 
     return db.adminToken.accessToken;
@@ -417,6 +426,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
     if (!code) return res.redirect('/');
 
     try {
+        console.log(`Spotify Auth: Exchanging code for token using redirect_uri: ${REDIRECT_URI}`);
         const response = await axios.post('https://accounts.spotify.com/api/token', new URLSearchParams({
             grant_type: 'authorization_code',
             code: code as string,
@@ -428,6 +438,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
         });
 
         const { access_token, refresh_token, expires_in } = response.data;
+        console.log('Spotify Auth: Token exchange SUCCESS');
         
         // Store as shared Admin token
         const db = getDB();
@@ -450,8 +461,33 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
                 </body>
             </html>
         `);
-    } catch (error) {
-        res.status(500).send('Spotify token exchange failed');
+    } catch (error: any) {
+        const errorData = error.response?.data || error.message;
+        console.error('Spotify Auth: Token exchange FAILED', errorData);
+        
+        let errorMessage = 'Spotify token exchange failed. Check server logs for details.';
+        if (error.response?.status === 400 && error.response?.data?.error === 'invalid_grant') {
+            errorMessage = 'Spotify Error: "invalid_grant". This often means the Authorization Code was already used or the Redirect URI does not match exactly what is in your Spotify Dashboard (including http/https and trailing slashes).';
+        }
+
+        res.status(500).send(`
+            <html>
+                <body style="font-family: sans-serif; padding: 20px; line-height: 1.5;">
+                    <h1 style="color: #ef4444;">Spotify Verbindung fehlgeschlagen</h1>
+                    <p>${errorMessage}</p>
+                    <p style="background: #f1f5f9; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                        ${JSON.stringify(errorData)}
+                    </p>
+                    <button onclick="window.close()">Fenster schließen</button>
+                    <hr />
+                    <h3>Häufige Probleme:</h3>
+                    <ul>
+                        <li><b>Redirect URI:</b> Muss exakt mit dem Eintrag im Spotify Dashboard übereinstimmen: <br/><code>${REDIRECT_URI}</code></li>
+                        <li><b>Developer Mode:</b> Falls deine App noch im "Development" Status ist, musst du Benutzer unter "Users and Access" manuell hinzufügen.</li>
+                    </ul>
+                </body>
+            </html>
+        `);
     }
 });
 
@@ -654,15 +690,24 @@ app.get('/api/spotify/search', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Spotify Admin account not connected' });
 
     try {
+        console.log(`Spotify Search: Querying "${q}"`);
         const response = await axios.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q as string)}&type=track&limit=5`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         res.json(response.data.tracks.items);
     } catch (error: any) {
-        console.error('Spotify search error:', error.response?.data || error.message);
+        const errorData = error.response?.data || error.message;
+        console.error('Spotify Search: FAILED', errorData);
+        
+        let extraHint = '';
+        if (error.response?.status === 403) {
+            extraHint = ' (Hinweis: Falls die App im Spotify Developer Mode ist, muss der Account unter "Users and Access" hinzugefügt werden.)';
+        }
+
         res.status(500).json({ 
             error: 'Spotify Suche fehlgeschlagen', 
-            details: error.response?.data?.error?.message || error.message 
+            details: (error.response?.data?.error?.message || error.message) + extraHint,
+            rawError: errorData
         });
     }
 });
