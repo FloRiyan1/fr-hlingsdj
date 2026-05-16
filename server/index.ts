@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer as createHttpServer } from 'http';
@@ -5,10 +8,9 @@ import { Server as SocketServer } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-import { initializeDB } from './db.js';
-import { setupRoutes } from './routes.js';
-import { checkAutoplay } from './spotify.js';
+import { initializeDB } from './db.ts';
+import { setupRoutes } from './routes.ts';
+import { checkAutoplay } from './spotify.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,8 +24,6 @@ const PORT = 3000;
 
 app.use(express.json());
 app.use(cookieParser());
-
-dotenv.config();
 
 initializeDB();
 setupRoutes(app, io);

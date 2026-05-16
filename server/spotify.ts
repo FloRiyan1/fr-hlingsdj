@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getDB, saveDB } from './db.js';
+import { getDB, saveDB } from './db.ts';
 import { Server as SocketServer } from 'socket.io';
 
 export const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID;
