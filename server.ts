@@ -684,10 +684,51 @@ app.post('/api/songs/:id/queue', async (req, res) => {
     res.json({ success: true });
 });
 
+app.get('/api/admin/debug-spotify', (req, res) => {
+    const db = getDB();
+    if (!hasAdminAccess(req, db)) {
+        return res.status(403).json({ error: 'Nicht autorisiert.' });
+    }
+
+    const config = {
+        hasClientId: !!SPOTIFY_CLIENT_ID,
+        hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
+        hasAppUrl: !!process.env.APP_URL,
+        redirectUri: REDIRECT_URI,
+        hasAdminToken: !!db.adminToken,
+        hasRefreshToken: !!db.adminToken?.refreshToken,
+        tokenExpiresAt: db.adminToken?.expiresAt ? new Date(db.adminToken.expiresAt).toISOString() : 'N/A',
+        isTokenExpired: db.adminToken?.expiresAt ? Date.now() > db.adminToken.expiresAt : 'N/A',
+        env: {
+            NODE_ENV: process.env.NODE_ENV,
+            // Don't leak actual secrets, just presence
+            SPOTIFY_CLIENT_ID: SPOTIFY_CLIENT_ID ? `${SPOTIFY_CLIENT_ID.substring(0, 4)}...` : 'MISSING',
+            SPOTIFY_CLIENT_SECRET: SPOTIFY_CLIENT_SECRET ? 'PRESENT' : 'MISSING',
+            APP_URL: process.env.APP_URL || 'MISSING'
+        }
+    };
+
+    res.json(config);
+});
+
 app.get('/api/spotify/search', async (req, res) => {
     const { q } = req.query;
+    
+    // Check configuration first
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+        return res.status(500).json({ 
+            error: 'Spotify nicht konfiguriert', 
+            details: 'Client ID oder Secret fehlt in den Umgebungsvariablen (Environment Variables).' 
+        });
+    }
+
     const token = await getAdminSpotifyToken();
-    if (!token) return res.status(401).json({ error: 'Spotify Admin account not connected' });
+    if (!token) {
+        return res.status(401).json({ 
+            error: 'Spotify nicht verbunden', 
+            details: 'Der Admin-Account wurde noch nicht mit Spotify verknüpft oder die Sitzung ist abgelaufen.' 
+        });
+    }
 
     try {
         console.log(`Spotify Search: Querying "${q}"`);
@@ -702,6 +743,8 @@ app.get('/api/spotify/search', async (req, res) => {
         let extraHint = '';
         if (error.response?.status === 403) {
             extraHint = ' (Hinweis: Falls die App im Spotify Developer Mode ist, muss der Account unter "Users and Access" hinzugefügt werden.)';
+        } else if (error.response?.status === 401) {
+            extraHint = ' (Hinweis: Der Token scheint ungültig zu sein. Bitte in den Admin-Einstellungen Spotify neu verbinden.)';
         }
 
         res.status(500).json({ 
