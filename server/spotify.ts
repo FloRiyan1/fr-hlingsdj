@@ -4,7 +4,8 @@ import { Server as SocketServer } from 'socket.io';
 
 export const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID;
 export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-export const REDIRECT_URI = `${process.env.APP_URL}/auth/callback`;
+// Pruefe erst ob eine komplette Redirect URI in der .env steht, sonst baue sie aus APP_URL zusammen
+export const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `${process.env.APP_URL}/auth/callback`;
 
 let isQueueing = false;
 

@@ -28,7 +28,8 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
     // Auth
     app.post('/api/admin/verify-pin', (req, res) => {
         const { pin } = req.body;
-        if (pin === '123') {
+        const correctPin = process.env.ADMIN_PASSWORD || '123';
+        if (pin === correctPin) {
             res.cookie('admin_authenticated', 'true', cookieOptions);
             return res.json({ success: true });
         }
@@ -87,7 +88,7 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
         res.json({ success: true });
     });
 
-    app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
+    app.get(['/auth/callback', '/auth/callback/', '/api/spotify/callback'], async (req, res) => {
         const { code } = req.query;
         if (!code) return res.redirect('/');
         try {
