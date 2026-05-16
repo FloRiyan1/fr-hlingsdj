@@ -1,7 +1,7 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
-import { getDB, saveDB } from './db.ts';
+import { getDB, saveDB } from './db.js';
 import { getAdminSpotifyToken, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, REDIRECT_URI } from './spotify.js';
 import { Server as SocketServer } from 'socket.io';
 
@@ -17,11 +17,19 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
         return db.moderators && db.moderators.includes(userId);
     }
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions: any = { 
+        httpOnly: true, 
+        secure: isProduction, 
+        sameSite: isProduction ? 'none' : 'lax', 
+        maxAge: 3600000 
+    };
+
     // Auth
     app.post('/api/admin/verify-pin', (req, res) => {
         const { pin } = req.body;
         if (pin === '123') {
-            res.cookie('admin_authenticated', 'true', { httpOnly: true, secure: true, sameSite: 'none', maxAge: 3600000 });
+            res.cookie('admin_authenticated', 'true', cookieOptions);
             return res.json({ success: true });
         }
         res.status(401).json({ error: 'Falscher PIN' });
@@ -40,7 +48,7 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
             db.users[userId] = { username, department };
             saveDB(db);
         }
-        res.cookie('user_id', userId, { httpOnly: true, secure: true, sameSite: 'none' });
+        res.cookie('user_id', userId, cookieOptions);
         res.json({ userId, username, department });
     });
 
@@ -54,6 +62,11 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
     });
 
     // Spotify OAuth
+    app.get('/api/spotify/status', (req, res) => {
+        const db = getDB();
+        res.json({ connected: !!db.adminToken });
+    });
+
     app.get('/api/auth/spotify/url', (req, res) => {
         if (!SPOTIFY_CLIENT_ID) return res.status(500).json({ error: 'Spotify Client ID not configured' });
         const scopes = 'user-modify-playback-state user-read-playback-state';
@@ -96,7 +109,7 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
                 expiresAt: Date.now() + (expires_in * 1000) - 60000
             };
             saveDB(db);
-            res.cookie('spotify_token', access_token, { httpOnly: true, secure: true, sameSite: 'none' });
+            res.cookie('spotify_token', access_token, cookieOptions);
             res.send('<html><body><script>window.opener.postMessage({ type: "OAUTH_AUTH_SUCCESS" }, "*");window.close();</script></body></html>');
         } catch (error: any) {
             res.status(500).send('Spotify connection failed.');
@@ -225,14 +238,32 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
 
     app.get('/api/spotify/search', async (req, res) => {
         const token = await getAdminSpotifyToken();
-        if (!token) return res.status(401).json({ error: 'Spotify not connected' });
+        if (!token) return res.status(401).json({ 
+            error: 'Spotify nicht verbunden', 
+            details: 'Der Admin-Account wurde noch nicht mit Spotify verknüpft.' 
+        });
+
         try {
             const response = await axios.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(req.query.q as string)}&type=track&limit=5`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             res.json(response.data.tracks.items);
         } catch (error: any) {
-            res.status(500).json({ error: 'Search failed' });
+            const errorData = error.response?.data || error.message;
+            console.error('Spotify Search: FAILED', errorData);
+            
+            let extraHint = '';
+            if (error.response?.status === 403) {
+                extraHint = ' (Hinweis: Falls die App im Spotify Developer Mode ist, muss der Account unter "Users and Access" hinzugefügt werden.)';
+            } else if (error.response?.status === 401) {
+                extraHint = ' (Hinweis: Der Token scheint ungültig zu sein. Bitte in den Admin-Einstellungen Spotify neu verbinden.)';
+            }
+
+            res.status(500).json({ 
+                error: 'Spotify Suche fehlgeschlagen', 
+                details: (error.response?.data?.error?.message || error.message) + extraHint,
+                rawError: errorData
+            });
         }
     });
 
@@ -287,15 +318,22 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
 
     app.get('/api/admin/debug-spotify', (req, res) => {
         const db = getDB();
-        if (!hasAdminAccess(req, db)) return res.status(403).json({ error: 'Unauthorized' });
+        if (!hasAdminAccess(req, db)) return res.status(403).json({ error: 'Nicht autorisiert.' });
+
         res.json({
             hasClientId: !!SPOTIFY_CLIENT_ID,
             hasClientSecret: !!SPOTIFY_CLIENT_SECRET,
             hasAppUrl: !!process.env.APP_URL,
             redirectUri: REDIRECT_URI,
             hasAdminToken: !!db.adminToken,
+            hasRefreshToken: !!db.adminToken?.refreshToken,
             tokenExpiresAt: db.adminToken?.expiresAt ? new Date(db.adminToken.expiresAt).toISOString() : 'N/A',
-            env: { SPOTIFY_CLIENT_ID: SPOTIFY_CLIENT_ID?.substring(0, 4) + '...', APP_URL: process.env.APP_URL }
+            isTokenExpired: db.adminToken?.expiresAt ? Date.now() > db.adminToken.expiresAt : false,
+            env: {
+                SPOTIFY_CLIENT_ID: SPOTIFY_CLIENT_ID ? `${SPOTIFY_CLIENT_ID.substring(0, 4)}...` : 'FEHLT',
+                SPOTIFY_CLIENT_SECRET: SPOTIFY_CLIENT_SECRET ? 'VORHANDEN' : 'FEHLT',
+                APP_URL: process.env.APP_URL || 'FEHLT'
+            }
         });
     });
 }

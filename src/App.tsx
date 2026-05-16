@@ -99,6 +99,13 @@ export default function App() {
   }, [fetchSongs, fetchPlayback]);
 
   useEffect(() => {
+    if (isAdminOpen && isAuthenticatedAdmin) {
+      fetch('/api/admin/debug-spotify').then(res => res.json()).then(setSpotifyDebug).catch(() => {});
+      fetchAdminStats();
+    }
+  }, [isAdminOpen, isAuthenticatedAdmin, fetchAdminStats]);
+
+  useEffect(() => {
     const socket = io();
     socket.on('songs:updated', () => {
       fetchSongs();
