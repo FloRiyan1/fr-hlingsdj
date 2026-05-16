@@ -1,7 +1,7 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
-import { getDB, saveDB } from './db.js';
+import { getDB, saveDB } from './db.ts';
 import { getAdminSpotifyToken, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, REDIRECT_URI } from './spotify.js';
 import { Server as SocketServer } from 'socket.io';
 
