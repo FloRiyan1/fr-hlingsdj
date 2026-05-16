@@ -5,9 +5,9 @@ import { Server as SocketServer } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
-import { initializeDB } from './db.js';
-import { setupRoutes } from './routes.js';
-import { checkAutoplay } from './spotify.js';
+import { initializeDB } from './db.ts';
+import { setupRoutes } from './routes.ts';
+import { checkAutoplay } from './spotify.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
