@@ -221,9 +221,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <div key={song.id} className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
                     <div className="min-w-0 flex-1">
                       <h4 className="font-bold text-sm truncate">{song.title}</h4>
-                      <div className="text-[10px] text-gray-400 truncate">{song.artist} • <span className="text-gray-500">{song.requestedBy}</span></div>
+                      <div className="text-[10px] text-gray-400 truncate">{song.artist} • <span className="text-gray-500">Von {song.requester.username} ({song.requester.department})</span></div>
                     </div>
                     <div className="flex items-center gap-3 ml-4">
+                      <button 
+                        onClick={() => onShowVoters(song)}
+                        className="p-2 text-gray-600 hover:text-white transition-colors"
+                        title="Voter anzeigen"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                      </button>
                       <div className="text-right">
                         <div className="text-xs font-black text-white">{song.totalVotes} Score</div>
                         <div className="text-[8px] text-gray-500 uppercase font-bold">↑{song.upvotes} ↓{song.downvotes}</div>
@@ -241,19 +248,29 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4 flex items-center gap-2">
                   <Music className="w-3 h-3" />Historie (Gesamte Sitzung: {adminStats.history.length})
                 </h3>
-                <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
-                  {adminStats.history.slice(0, 10).map((song) => (
-                    <div key={song.id} className="bg-black/20 rounded-xl p-3 border border-white/5 flex justify-between items-center text-[10px]">
+                <div className="space-y-3 opacity-80 hover:opacity-100 transition-opacity">
+                  {adminStats.history.slice(0, 15).map((song) => (
+                    <div 
+                      key={song.id} 
+                      className="bg-black/20 rounded-xl p-3 border border-white/5 flex justify-between items-center text-[10px] cursor-pointer hover:bg-white/5 transition-colors group"
+                      onClick={() => onShowVoters(song)}
+                    >
                        <div className="min-w-0 flex-1">
-                        <h4 className="font-bold truncate">{song.title}</h4>
-                        <div className="text-gray-500 truncate">{song.artist} • <span className="text-gray-600">Sollte gespielt worden sein</span></div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold truncate">{song.title}</h4>
+                          <Users className="w-2.5 h-2.5 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="text-gray-500 truncate">{song.artist} • <span className="text-gray-400">Von {song.requester.username}</span></div>
                       </div>
-                      <div className="ml-4 text-gray-600 font-bold">{song.totalVotes} Score</div>
+                      <div className="ml-4 text-right">
+                        <div className="text-gray-300 font-bold">{song.totalVotes} Score</div>
+                        <div className="text-[8px] text-gray-600 uppercase font-bold">↑{song.upvotes} ↓{song.downvotes}</div>
+                      </div>
                     </div>
                   ))}
-                  {adminStats.history.length > 10 && (
+                  {adminStats.history.length > 15 && (
                     <div className="text-center text-[9px] text-gray-600 font-bold uppercase tracking-widest pt-2">
-                      + {adminStats.history.length - 10} weitere Titel in der Historie
+                      + {adminStats.history.length - 15} weitere Titel in der Historie
                     </div>
                   )}
                 </div>

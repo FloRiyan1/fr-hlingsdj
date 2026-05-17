@@ -301,14 +301,22 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
     app.get('/api/admin/stats', (req, res) => {
         const db = getDB();
         const mapVoters = (voters: string[]) => voters.map(vId => db.users[vId] || { username: 'Unbekannt', department: 'Sonstige' });
-        const processSong = (song: any) => ({
-            ...song,
-            totalVotes: song.votes,
-            upvotes: (song.upvoters || []).length,
-            downvotes: (song.downvoters || []).length,
-            departmentsUp: mapVoters(song.upvoters || []).reduce((acc: any, v: any) => { (acc[v.department] = acc[v.department] || []).push(v.username); return acc; }, {}),
-            departmentsDown: mapVoters(song.downvoters || []).reduce((acc: any, v: any) => { (acc[v.department] = acc[v.department] || []).push(v.username); return acc; }, {})
-        });
+        const processSong = (song: any) => {
+            const requester = song.requestedBy ? db.users[song.requestedBy] : null;
+            return {
+                ...song,
+                totalVotes: song.votes,
+                upvotes: (song.upvoters || []).length,
+                downvotes: (song.downvoters || []).length,
+                requester: requester || { username: 'Unbekannt', department: 'Sonstige' },
+                voters: {
+                    up: mapVoters(song.upvoters || []),
+                    down: mapVoters(song.downvoters || [])
+                },
+                departmentsUp: mapVoters(song.upvoters || []).reduce((acc: any, v: any) => { (acc[v.department] = acc[v.department] || []).push(v.username); return acc; }, {}),
+                departmentsDown: mapVoters(song.downvoters || []).reduce((acc: any, v: any) => { (acc[v.department] = acc[v.department] || []).push(v.username); return acc; }, {})
+            };
+        };
         res.json({
             current: db.songs.map(processSong),
             history: Object.entries(db.history).map(([uri, data]: [string, any]) => processSong({ ...data, id: uri, spotifyUri: uri }))
