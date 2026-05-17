@@ -10,11 +10,46 @@ interface NowPlayingProps {
 }
 
 export const NowPlaying: React.FC<NowPlayingProps> = ({ playback, onShowVoters, downvotesEnabled }) => {
+  const [displayProgress, setDisplayProgress] = React.useState(0);
+  const lastUpdateRef = React.useRef<{ progress: number; timestamp: number } | null>(null);
+
+  React.useEffect(() => {
+    if (playback) {
+      lastUpdateRef.current = {
+        progress: playback.progress_ms,
+        timestamp: Date.now()
+      };
+      setDisplayProgress(playback.progress_ms);
+    } else {
+      lastUpdateRef.current = null;
+      setDisplayProgress(0);
+    }
+  }, [playback]);
+
+  React.useEffect(() => {
+    if (!playback || !playback.is_playing) return;
+
+    let frameId: number;
+    const update = () => {
+      if (lastUpdateRef.current) {
+        const elapsed = Date.now() - lastUpdateRef.current.timestamp;
+        const estimated = lastUpdateRef.current.progress + elapsed;
+        setDisplayProgress(Math.min(estimated, playback.item.duration_ms));
+      }
+      frameId = requestAnimationFrame(update);
+    };
+
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, [playback?.is_playing, playback?.item.duration_ms]);
+
   if (!playback) return (
     <div className="mb-10 sm:mb-14 overflow-hidden h-32 sm:h-44 bg-white/5 rounded-3xl border border-dashed border-white/10 flex items-center justify-center text-gray-600 text-sm italic">
         Keine Wiedergabe aktiv
     </div>
   );
+
+  const progressPercent = (displayProgress / playback.item.duration_ms) * 100;
 
   return (
     <motion.section 
@@ -28,8 +63,8 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({ playback, onShowVoters, 
         <motion.div 
            className="absolute bottom-0 left-0 h-1 bg-red-600 shadow-[0_0_10px_#e30613]"
            initial={false}
-           animate={{ width: `${(playback.progress_ms / playback.item.duration_ms) * 100}%` }}
-           transition={{ duration: 0.5, ease: "linear" }}
+           animate={{ width: `${progressPercent}%` }}
+           transition={{ duration: 0.1, ease: "linear" }}
         />
         <div className="p-5 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
           <div className="relative group shrink-0">
