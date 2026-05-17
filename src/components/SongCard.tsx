@@ -107,8 +107,10 @@ export const SongCard: React.FC<SongCardProps> = ({
             title="Wähler anzeigen"
           >
             <span className={`text-xs sm:text-sm font-black transition-colors ${
-              song.upvoters?.includes(user?.userId || '') ? (downvotesEnabled ? 'text-green-500' : 'text-red-500') : 
-              song.downvoters?.includes(user?.userId || '') ? 'text-red-500' : 'text-gray-500'
+              song.upvoters?.includes(user?.userId || '') 
+                ? (downvotesEnabled ? 'text-green-500' : 'text-red-500') : 
+              song.downvoters?.includes(user?.userId || '') 
+                ? 'text-red-500' : 'text-gray-500'
             }`}>
               {song.votes > 0 ? `+${song.votes}` : song.votes}
             </span>
@@ -123,7 +125,7 @@ export const SongCard: React.FC<SongCardProps> = ({
                 onClick={() => onVote(song.id, 'down')}
                 className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center transition-all active:scale-90 border ${
                   song.downvoters?.includes(user?.userId || '') 
-                  ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/20' 
+                  ? 'bg-red-600 border-red-500 text-white shadow-lg' 
                   : 'bg-transparent border-transparent text-gray-500 hover:text-white hover:bg-white/5'
                 }`}
               >

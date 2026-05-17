@@ -12,8 +12,6 @@ export function setupRoutes(app: express.Express, io: SocketServer) {
         const adminAuth = req.cookies.admin_authenticated;
         if (adminAuth === 'true') return true;
         if (!userId) return false;
-        const user = db.users[userId];
-        if (user && user.username.toLowerCase() === 'admin' && user.department.toLowerCase() === 'dev') return true;
         return db.moderators && db.moderators.includes(userId);
     }
 

@@ -14,6 +14,8 @@ interface AdminModalProps {
   onToggleAutoplay: (val: boolean) => void;
   spotifyDebug: any;
   onRefreshDebug: () => void;
+  showDebug: boolean;
+  onToggleDebug: () => void;
   departments: string[];
   newDeptName: string;
   setNewDeptName: (val: string) => void;
@@ -28,7 +30,7 @@ interface AdminModalProps {
 export const AdminModal: React.FC<AdminModalProps> = ({
   isOpen, onClose, isSpotifyConnected, onConnectSpotify, onDisconnectSpotify,
   downvotesEnabled, onToggleDownvotes, autoplayEnabled, onToggleAutoplay,
-  spotifyDebug, onRefreshDebug, departments, newDeptName, setNewDeptName,
+  spotifyDebug, onRefreshDebug, showDebug, onToggleDebug, departments, newDeptName, setNewDeptName,
   onAddDept, onRemoveDept, adminUsers, onToggleModerator, adminStats, onShowVoters
 }) => {
   if (!isOpen) return null;
@@ -72,70 +74,105 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
             {spotifyDebug && (
               <div className="mt-6 pt-6 border-t border-white/5">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  Spotify Debug (Konfiguration)
-                </h3>
-                <div className="space-y-3 bg-black/20 p-4 rounded-xl border border-white/5 text-[10px] sm:text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Client ID:</span>
-                    <span className={spotifyDebug.hasClientId ? 'text-green-500' : 'text-red-500 font-bold'}>
-                      {spotifyDebug.hasClientId ? `Vorhanden (${spotifyDebug.env.SPOTIFY_CLIENT_ID})` : 'FEHLT'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Client Secret:</span>
-                    <span className={spotifyDebug.hasClientSecret ? 'text-green-500' : 'text-red-500 font-bold'}>
-                      {spotifyDebug.hasClientSecret ? 'Vorhanden' : 'FEHLT'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">APP_URL:</span>
-                    <span className={spotifyDebug.hasAppUrl ? 'text-gray-300' : 'text-red-500 font-bold'}>
-                      {spotifyDebug.env.APP_URL}
-                    </span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5 mt-2">
-                    <span className="text-gray-400 font-bold">Redirect URI:</span>
-                    <span className="text-white font-mono break-all text-right ml-4">
-                      {spotifyDebug.redirectUri}
-                    </span>
-                  </div>
-                  <div className="text-[9px] text-gray-600 mt-2 italic px-1">
-                    * Diese URL muss exakt so im Spotify Dashboard eingestellt sein.
-                  </div>
-                  
-                  <div className="h-px bg-white/5 my-2" />
-                  
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Admin Verbunden:</span>
-                    <span className={spotifyDebug.hasAdminToken ? 'text-green-500' : 'text-red-500 font-bold'}>
-                      {spotifyDebug.hasAdminToken ? 'JA' : 'NEIN'}
-                    </span>
-                  </div>
-                  {spotifyDebug.hasAdminToken && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Refresh Token:</span>
-                        <span className={spotifyDebug.hasRefreshToken ? 'text-green-500' : 'text-red-500 font-bold'}>
-                          {spotifyDebug.hasRefreshToken ? 'Vorhanden' : 'FEHLT (Neu einloggen!)'}
-                        </span>
+                <button 
+                  onClick={onToggleDebug}
+                  className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-red-500 mb-4 group"
+                >
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Spotify Debug (Konfiguration)
+                  </span>
+                  <motion.span animate={{ rotate: showDebug ? 180 : 0 }} className="text-gray-500 group-hover:text-white transition-colors">
+                    ▼
+                  </motion.span>
+                </button>
+                
+                <AnimatePresence>
+                  {showDebug && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-3 bg-black/20 p-4 rounded-xl border border-white/5 text-[10px] sm:text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Client ID:</span>
+                          <span className={spotifyDebug.hasClientId ? 'text-green-500' : 'text-red-500 font-bold'}>
+                            {spotifyDebug.hasClientId ? `Vorhanden (${spotifyDebug.env.SPOTIFY_CLIENT_ID})` : 'FEHLT'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Client Secret:</span>
+                          <span className={spotifyDebug.hasClientSecret ? 'text-green-500' : 'text-red-500 font-bold'}>
+                            {spotifyDebug.hasClientSecret ? 'Vorhanden' : 'FEHLT'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">APP_URL:</span>
+                          <span className={spotifyDebug.hasAppUrl ? 'text-gray-300' : 'text-red-500 font-bold'}>
+                            {spotifyDebug.env.APP_URL}
+                          </span>
+                        </div>
+                        {!spotifyDebug.hasAppUrl && (
+                          <div className="text-[9px] text-gray-400 -mt-2 px-1">
+                            (Optional, da REDIRECT_URI manuell gesetzt ist)
+                          </div>
+                        )}
+                        <div className="flex justify-between p-2 bg-white/5 rounded border border-white/5 mt-2">
+                          <span className="text-gray-400 font-bold">Redirect URI:</span>
+                          <span className="text-white font-mono break-all text-right ml-4">
+                            {spotifyDebug.redirectUri}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-gray-600 mt-2 italic px-1">
+                          * Diese URL muss exakt so im Spotify Dashboard eingestellt sein.
+                        </div>
+                        
+                        <div className="h-px bg-white/5 my-2" />
+                        
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Admin Verbunden:</span>
+                          <span className={spotifyDebug.hasAdminToken ? 'text-green-500' : 'text-red-500 font-bold'}>
+                            {spotifyDebug.hasAdminToken ? 'JA' : 'NEIN'}
+                          </span>
+                        </div>
+                        {spotifyDebug.hasAdminToken && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Refresh Token:</span>
+                              <span className={spotifyDebug.hasRefreshToken ? 'text-green-500' : 'text-red-500 font-bold'}>
+                                {spotifyDebug.hasRefreshToken ? 'Vorhanden' : 'FEHLT (Neu einloggen!)'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Token Ablauf:</span>
+                              <span className={spotifyDebug.isTokenExpired ? 'text-yellow-500' : 'text-gray-300'}>
+                                {spotifyDebug.tokenExpiresAt} {spotifyDebug.isTokenExpired && '(Abgelaufen - wird autom. erneuert)'}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex gap-2 mt-4">
+                          <button 
+                            onClick={onRefreshDebug}
+                            className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[10px] font-bold uppercase transition-colors"
+                          >
+                            Status aktualisieren
+                          </button>
+                          {spotifyDebug.hasAdminToken && (
+                            <button 
+                              onClick={onDisconnectSpotify}
+                              className="flex-1 py-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white rounded-xl border border-red-600/20 text-[10px] font-bold uppercase transition-all"
+                            >
+                              Verbindung trennen
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Token Ablauf:</span>
-                        <span className={spotifyDebug.isTokenExpired ? 'text-yellow-500' : 'text-gray-300'}>
-                          {spotifyDebug.tokenExpiresAt} {spotifyDebug.isTokenExpired && '(Abgelaufen - wird autom. erneuert)'}
-                        </span>
-                      </div>
-                    </>
+                    </motion.div>
                   )}
-                  <button 
-                    onClick={onRefreshDebug}
-                    className="w-full mt-2 py-2 bg-white/5 hover:bg-white/10 rounded border border-white/5 text-[10px] font-bold uppercase transition-colors"
-                  >
-                    Status aktualisieren
-                  </button>
-                </div>
+                </AnimatePresence>
               </div>
             )}
           </div>
@@ -174,18 +211,54 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           </div>
 
           {/* Stats Section */}
-          <section>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-6 flex items-center gap-2"><PlayCircle className="w-3 h-3" />Aktuelle Wünsche</h3>
-            <div className="space-y-4">
-              {adminStats.current.map((song) => (
-                <div key={song.id} className="bg-white/5 rounded-2xl p-5 border border-white/5">
-                  <div className="flex justify-between items-start mb-4">
-                    <div><h4 className="font-black text-base">{song.title}</h4><div className="text-xs text-gray-400">{song.artist} • {song.requestedBy}</div></div>
-                    <div className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black">{song.totalVotes} Score</div>
+          <section className="space-y-6">
+            <div>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 mb-4 flex items-center gap-2">
+                <PlayCircle className="w-3 h-3" />Aktuelle Warteschlange ({adminStats.current.length})
+              </h3>
+              <div className="space-y-3">
+                {adminStats.current.length > 0 ? adminStats.current.map((song) => (
+                  <div key={song.id} className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-sm truncate">{song.title}</h4>
+                      <div className="text-[10px] text-gray-400 truncate">{song.artist} • <span className="text-gray-500">{song.requestedBy}</span></div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <div className="text-right">
+                        <div className="text-xs font-black text-white">{song.totalVotes} Score</div>
+                        <div className="text-[8px] text-gray-500 uppercase font-bold">↑{song.upvotes} ↓{song.downvotes}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )) : (
+                  <div className="text-center py-8 bg-black/20 rounded-2xl border border-dashed border-white/5 text-gray-600 text-xs font-medium">Keine aktiven Lieder in der Liste</div>
+                )}
+              </div>
             </div>
+
+            {adminStats.history && adminStats.history.length > 0 && (
+              <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4 flex items-center gap-2">
+                  <Music className="w-3 h-3" />Historie (Gesamte Sitzung: {adminStats.history.length})
+                </h3>
+                <div className="space-y-3 opacity-60 hover:opacity-100 transition-opacity">
+                  {adminStats.history.slice(0, 10).map((song) => (
+                    <div key={song.id} className="bg-black/20 rounded-xl p-3 border border-white/5 flex justify-between items-center text-[10px]">
+                       <div className="min-w-0 flex-1">
+                        <h4 className="font-bold truncate">{song.title}</h4>
+                        <div className="text-gray-500 truncate">{song.artist} • <span className="text-gray-600">Sollte gespielt worden sein</span></div>
+                      </div>
+                      <div className="ml-4 text-gray-600 font-bold">{song.totalVotes} Score</div>
+                    </div>
+                  ))}
+                  {adminStats.history.length > 10 && (
+                    <div className="text-center text-[9px] text-gray-600 font-bold uppercase tracking-widest pt-2">
+                      + {adminStats.history.length - 10} weitere Titel in der Historie
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </motion.div>

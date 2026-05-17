@@ -43,8 +43,47 @@ export default function App() {
   const [tempDepartment, setTempDepartment] = useState('');
   const [newDeptName, setNewDeptName] = useState('');
   const [spotifyDebug, setSpotifyDebug] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(true);
   
+  const searchRef = useRef<HTMLDivElement>(null);
   const adminTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const refreshSpotifyStatus = useCallback(async () => {
+    try {
+      const statusRes = await fetch('/api/spotify/status');
+      if (statusRes.ok) {
+        const { connected } = await statusRes.json();
+        setIsSpotifyConnected(connected);
+      }
+      
+      const debugRes = await fetch('/api/admin/debug-spotify');
+      if (debugRes.ok) {
+        setSpotifyDebug(await debugRes.json());
+      }
+    } catch (err) { 
+      console.error('Refresh status error', err); 
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        refreshSpotifyStatus();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [refreshSpotifyStatus]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setSearchResults([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchSongs = useCallback(async () => {
     try {
@@ -100,10 +139,10 @@ export default function App() {
 
   useEffect(() => {
     if (isAdminOpen && isAuthenticatedAdmin) {
-      fetch('/api/admin/debug-spotify').then(res => res.json()).then(setSpotifyDebug).catch(() => {});
+      refreshSpotifyStatus();
       fetchAdminStats();
     }
-  }, [isAdminOpen, isAuthenticatedAdmin, fetchAdminStats]);
+  }, [isAdminOpen, isAuthenticatedAdmin, fetchAdminStats, refreshSpotifyStatus]);
 
   useEffect(() => {
     const socket = io();
@@ -226,14 +265,16 @@ export default function App() {
       </header>
 
       <main className="max-w-4xl mx-auto py-6 sm:py-10 px-4 sm:px-6">
-        <NowPlaying playback={currentPlayback} onShowVoters={setVoterModalSong} />
+        <NowPlaying playback={currentPlayback} onShowVoters={setVoterModalSong} downvotesEnabled={downvotesEnabled} />
         
         <SearchSection 
+          searchRef={searchRef}
           searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
           onSearch={searchSpotify} isSearching={isSearching} 
           searchResults={searchResults} onAddSong={addSong} 
           onVote={voteSong} songs={songs} user={user} 
           downvotesEnabled={downvotesEnabled} 
+          onClear={() => { setSearchQuery(''); setSearchResults([]); }}
         />
 
         <section>
@@ -270,10 +311,11 @@ export default function App() {
           const { url } = await res.json();
           window.open(url, 'Spotify', 'width=600,height=800');
         }}
-        onDisconnectSpotify={() => fetch('/api/auth/spotify/logout', { method: 'POST' }).then(() => setIsSpotifyConnected(false))}
+        onDisconnectSpotify={() => fetch('/api/auth/spotify/logout', { method: 'POST' }).then(refreshSpotifyStatus)}
         downvotesEnabled={downvotesEnabled} onToggleDownvotes={val => fetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({downvotesEnabled: val}) }).then(res => res.json()).then(d => setDownvotesEnabled(d.downvotesEnabled))}
         autoplayEnabled={autoplayEnabled} onToggleAutoplay={val => fetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({autoplayEnabled: val}) }).then(res => res.json()).then(d => setAutoplayEnabled(d.autoplayEnabled))}
         spotifyDebug={spotifyDebug} onRefreshDebug={() => fetch('/api/admin/debug-spotify').then(res => res.json()).then(setSpotifyDebug)}
+        showDebug={showDebug} onToggleDebug={() => setShowDebug(!showDebug)}
         departments={departments} newDeptName={newDeptName} setNewDeptName={setNewDeptName}
         onAddDept={() => fetch('/api/admin/departments', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({departments: [...departments, newDeptName]}) }).then(() => {setDepartments([...departments, newDeptName]); setNewDeptName('');})}
         onRemoveDept={name => fetch('/api/admin/departments', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({departments: departments.filter(d => d !== name)}) }).then(() => setDepartments(departments.filter(d => d !== name)))}

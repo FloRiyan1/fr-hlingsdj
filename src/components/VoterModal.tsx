@@ -60,15 +60,15 @@ export const VoterModal: React.FC<VoterModalProps> = ({ song, onClose, downvotes
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           <section>
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                <ThumbsUp className="w-3 h-3 text-green-500" />
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${downvotesEnabled ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                <ThumbsUp className={`w-3 h-3 ${downvotesEnabled ? 'text-green-500' : 'text-red-500'}`} />
               </div>
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-green-500">Upvotes ({song.voters?.up.length || 0})</span>
+              <span className={`text-xs font-bold uppercase tracking-[0.2em] ${downvotesEnabled ? 'text-green-500' : 'text-red-500'}`}>Upvotes ({song.voters?.up.length || 0})</span>
             </div>
             {Object.entries(groupVotersByDept(song.voters?.up || [])).length > 0 ? (
               <div className="space-y-6">
                 {Object.entries(groupVotersByDept(song.voters?.up || [])).map(([dept, names], idx) => (
-                  <div key={idx} className="relative pl-4 border-l-2 border-green-500/20">
+                  <div key={idx} className={`relative pl-4 border-l-2 ${downvotesEnabled ? 'border-green-500/20' : 'border-red-500/20'}`}>
                     <span className="text-[10px] font-black uppercase text-gray-500 mb-3 block tracking-wider">{dept}</span>
                     <div className="flex flex-wrap gap-2">
                       {names.map((name, i) => (
@@ -77,7 +77,7 @@ export const VoterModal: React.FC<VoterModalProps> = ({ song, onClose, downvotes
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          className="px-3.5 py-1.5 bg-white/5 text-gray-200 text-sm rounded-xl border border-white/5 font-semibold hover:border-green-500/30 transition-colors"
+                          className={`px-3.5 py-1.5 bg-white/5 text-gray-200 text-sm rounded-xl border border-white/5 font-semibold transition-colors ${downvotesEnabled ? 'hover:border-green-500/30' : 'hover:border-red-500/30'}`}
                         >
                           {name}
                         </motion.span>

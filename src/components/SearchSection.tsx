@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Plus, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Search, Plus, Loader2, ThumbsUp, ThumbsDown, XCircle } from 'lucide-react';
 import { SpotifyTrack, Song, UserProfile } from '../types.js';
 
 interface SearchSectionProps {
+  searchRef?: React.RefObject<HTMLDivElement>;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
   onSearch: () => void;
@@ -14,26 +15,38 @@ interface SearchSectionProps {
   songs: Song[];
   user: UserProfile | null;
   downvotesEnabled: boolean;
+  onClear?: () => void;
 }
 
 export const SearchSection: React.FC<SearchSectionProps> = ({
-  searchQuery, setSearchQuery, onSearch, isSearching, searchResults,
-  onAddSong, onVote, songs, user, downvotesEnabled
+  searchRef, searchQuery, setSearchQuery, onSearch, isSearching, searchResults,
+  onAddSong, onVote, songs, user, downvotesEnabled, onClear
 }) => {
   return (
-    <section className="mb-8 sm:mb-12">
+    <section ref={searchRef} className="mb-8 sm:mb-12">
       <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2"><Plus className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />Lied anfragen</h2>
       <div className="relative mb-4">
-        <div className="relative">
+        <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input 
             type="text" placeholder="Lied oder Interpret suchen..." value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && onSearch()}
-            className="w-full bg-[#1e1e1e] border border-white/5 focus:border-red-600/30 rounded-2xl py-4 pl-11 pr-14 outline-none transition-all placeholder:text-gray-600 shadow-xl text-sm sm:text-base"
+            className="w-full bg-[#1e1e1e] border border-white/5 focus:border-red-600/30 rounded-2xl py-4 pl-11 pr-24 outline-none transition-all placeholder:text-gray-600 shadow-xl text-sm sm:text-base"
           />
-          <button onClick={onSearch} disabled={isSearching || !searchQuery} className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-30 flex items-center justify-center">
-            {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-          </button>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchQuery && (
+              <button 
+                onClick={onClear}
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                title="Suche leeren"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={onSearch} disabled={isSearching || !searchQuery} className="w-10 h-10 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-30 flex items-center justify-center">
+              {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -48,12 +61,34 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
                     <img src={track.album.images[0]?.url} alt="" className="w-10 h-10 rounded shadow-lg" />
                     <div className="min-w-0"><div className="font-bold text-xs sm:text-sm line-clamp-1">{track.name}</div><div className="text-[10px] sm:text-xs text-gray-400 truncate">{track.artists.map(a => a.name).join(', ')}</div></div>
                   </div>
-                  {songInList ? (
+                   {songInList ? (
                     <div className="flex items-center gap-2">
-                       <span className={`text-[10px] sm:text-xs font-black ${songInList.upvoters?.includes(user?.userId || '') ? 'text-green-500' : 'text-gray-500'}`}>{songInList.votes > 0 ? `+${songInList.votes}` : songInList.votes}</span>
+                       <span className={`text-[10px] sm:text-xs font-black ${
+                         songInList.upvoters?.includes(user?.userId || '') 
+                          ? (downvotesEnabled ? 'text-green-500' : 'text-red-500') 
+                          : songInList.downvoters?.includes(user?.userId || '') ? 'text-red-500' : 'text-gray-500'
+                       }`}>
+                         {songInList.votes > 0 ? `+${songInList.votes}` : songInList.votes}
+                       </span>
                        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/10">
-                          {downvotesEnabled && <button onClick={() => onVote(songInList.id, 'down')} className={`w-7 h-7 rounded flex items-center justify-center ${songInList.downvoters?.includes(user?.userId || '') ? 'bg-red-600 text-white' : 'text-gray-500'}`}><ThumbsDown className="w-3 h-3" /></button>}
-                          <button onClick={() => onVote(songInList.id, 'up')} className={`w-7 h-7 rounded flex items-center justify-center ${songInList.upvoters?.includes(user?.userId || '') ? 'bg-red-600 text-white' : 'text-gray-500'}`}><ThumbsUp className="w-3 h-3" /></button>
+                          {downvotesEnabled && (
+                            <button 
+                              onClick={() => onVote(songInList.id, 'down')} 
+                              className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${songInList.downvoters?.includes(user?.userId || '') ? 'bg-red-600 text-white' : 'text-gray-500 hover:text-white'}`}
+                            >
+                              <ThumbsDown className={`w-3 h-3 ${songInList.downvoters?.includes(user?.userId || '') ? 'fill-white' : ''}`} />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => onVote(songInList.id, 'up')} 
+                            className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                              songInList.upvoters?.includes(user?.userId || '') 
+                                ? (downvotesEnabled ? 'bg-green-600' : 'bg-red-600') + ' text-white' 
+                                : 'text-gray-500 hover:text-white'
+                            }`}
+                          >
+                            <ThumbsUp className={`w-3 h-3 ${songInList.upvoters?.includes(user?.userId || '') ? 'fill-white' : ''}`} />
+                          </button>
                        </div>
                     </div>
                   ) : (
