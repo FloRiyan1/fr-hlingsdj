@@ -7,6 +7,7 @@ export const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 // Pruefe erst ob eine komplette Redirect URI in der .env steht, sonst baue sie aus APP_URL zusammen
 export const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `${process.env.APP_URL}/auth/callback`;
 
+let lastLoggedUri = '';
 let isQueueing = false;
 
 export async function refreshAdminToken() {
@@ -108,6 +109,15 @@ export async function checkAutoplay(io: SocketServer) {
                 up: (voterInfo?.upvoters || []).map((id: string) => db.users[id] || { username: 'Unbekannt', department: 'Sonstige' }),
                 down: (voterInfo?.downvoters || []).map((id: string) => db.users[id] || { username: 'Unbekannt', department: 'Sonstige' })
             };
+
+            const currentUri = playback.item.uri;
+            const progress = playback.progress_ms;
+            
+            // Log only if track changed
+            if (currentUri !== lastLoggedUri) {
+                console.log(`Spotify Sync: Playing "${playback.item.name}" - ${currentUri}`);
+                lastLoggedUri = currentUri;
+            }
 
             io.emit('playback:updated', {
                 playback: {

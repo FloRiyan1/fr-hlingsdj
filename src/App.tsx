@@ -129,26 +129,47 @@ export default function App() {
     fetch('/api/admin/users').then(res => res.json()).then(setAdminUsers).catch(() => {});
   }, [fetchSongs, fetchPlayback]);
 
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+
   useEffect(() => {
-    const socket = io();
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
     
-    socket.on('connect', () => console.log('Socket connected'));
-    socket.on('disconnect', () => console.log('Socket disconnected'));
+    socket.on('connect', () => {
+      console.log('Socket: Verbunden mit ID:', socket.id);
+      setIsSocketConnected(true);
+      fetchSongs();
+      fetchPlayback();
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Socket: Getrennt - Grund:', reason);
+      setIsSocketConnected(false);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket: Verbindungsfehler:', err.message);
+    });
     
     socket.on('songs:updated', () => {
+      console.log('Socket Event: songs:updated');
       fetchSongs();
-      // Use a custom event or check state indirectly if possible, 
-      // but fetchSongs is stable now so it's fine.
     });
 
     socket.on('playback:updated', (data) => {
-      setCurrentPlayback(data.playback);
+      console.log('Socket Event: playback:updated', data);
+      if (data && data.playback !== undefined) {
+        setCurrentPlayback(data.playback);
+      }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [fetchSongs]);
+  }, [fetchSongs, fetchPlayback]);
 
   // Separate effect for admin updates to not trigger socket reconnects
   useEffect(() => {
@@ -157,6 +178,18 @@ export default function App() {
       fetchAdminStats();
     }
   }, [isAdminOpen, isAuthenticatedAdmin, refreshSpotifyStatus, fetchAdminStats]);
+
+  // Fallback polling if socket is disconnected
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isSocketConnected) {
+        console.log('Socket disconnected, performing fallback fetch...');
+        fetchSongs();
+        fetchPlayback();
+      }
+    }, 10000); // Every 10 seconds
+    return () => clearInterval(interval);
+  }, [isSocketConnected, fetchSongs, fetchPlayback]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,10 +293,28 @@ export default function App() {
             <Music className="w-6 h-6 text-red-600" />
             <span className="font-bold text-xl tracking-tight">pds <span className="font-light">Frühlingsmix</span></span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-400 font-medium">{user.username}</span>
-            {isSpotifyConnected && <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest border border-green-500/20 px-2 py-1 rounded-full bg-green-500/5">Live</span>}
-            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white"><LogOut className="w-5 h-5" /></button>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 pr-2 border-r border-white/5">
+              <div 
+                className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 animate-pulse'}`}
+                title={isSocketConnected ? 'Live-Verbindung aktiv' : 'Verbindung getrennt - Fallback aktiv'}
+              />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden xs:inline">
+                {isSocketConnected ? 'Live' : 'Sync'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 font-medium hidden sm:inline">{user.username}</span>
+              <button 
+                onClick={() => { fetchSongs(); fetchPlayback(); }}
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white transition-colors"
+                title="Aktualisieren"
+              >
+                <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-white" title="Abmelden"><LogOut className="w-5 h-5" /></button>
+            </div>
           </div>
         </div>
       </header>

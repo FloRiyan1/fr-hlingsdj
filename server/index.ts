@@ -23,6 +23,13 @@ const PORT = 3000;
 app.use(express.json());
 app.use(cookieParser());
 
+io.on('connection', (socket) => {
+    console.log(`Socket Client connected: ${socket.id}. Total: ${io.engine.clientsCount}`);
+    socket.on('disconnect', () => {
+        console.log(`Socket Client disconnected: ${socket.id}. Remaining: ${io.engine.clientsCount}`);
+    });
+});
+
 initializeDB();
 setupRoutes(app, io);
 
