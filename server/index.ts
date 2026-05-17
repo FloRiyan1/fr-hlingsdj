@@ -26,8 +26,16 @@ app.use(cookieParser());
 initializeDB();
 setupRoutes(app, io);
 
-// Poll for sync/autoplay every 2 seconds
-setInterval(() => checkAutoplay(io), 2000);
+// Poll for sync/autoplay every 2 seconds efficiently
+async function pollLoop() {
+    try {
+        await checkAutoplay(io);
+    } catch (err) {
+        console.error('Poll Loop Error:', err);
+    }
+    setTimeout(pollLoop, 2000);
+}
+pollLoop();
 
 async function start() {
     if (process.env.NODE_ENV !== 'production') {

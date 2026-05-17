@@ -20,9 +20,11 @@ export interface DB {
     moderators: string[];
 }
 
+let dbCache: DB | null = null;
+
 export function initializeDB() {
     if (!fs.existsSync(DB_PATH)) {
-        fs.writeFileSync(DB_PATH, JSON.stringify({ 
+        dbCache = { 
             songs: [], 
             users: {}, 
             adminToken: null,
@@ -30,36 +32,27 @@ export function initializeDB() {
             history: {},
             departments: ['Entwicklung', 'Marketing', 'Vertrieb', 'Design', 'HR', 'Support'],
             moderators: []
-        }));
+        };
+        fs.writeFileSync(DB_PATH, JSON.stringify(dbCache, null, 2));
+    } else {
+        try {
+            dbCache = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+        } catch (err) {
+            console.error('Failed to load DB, resetting', err);
+            dbCache = { songs: [], users: {}, adminToken: null, settings: { downvotesEnabled: false, autoplayEnabled: false }, history: {}, departments: [], moderators: [] };
+        }
     }
 }
 
 export function getDB(): DB {
-    try {
-        const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
-        if (!data.adminToken) data.adminToken = null;
-        if (!data.songs) data.songs = [];
-        if (!data.users) data.users = {};
-        if (!data.settings) data.settings = { downvotesEnabled: false, autoplayEnabled: false };
-        if (!data.history) data.history = {};
-        if (!data.departments) data.departments = ['Entwicklung', 'Marketing', 'Vertrieb', 'Design', 'HR', 'Support'];
-        if (!data.moderators) data.moderators = [];
-        return data;
-    } catch (error) {
-        console.error('Failed to read or parse database:', error);
-        return { 
-            songs: [], 
-            users: {}, 
-            adminToken: null, 
-            settings: { downvotesEnabled: false, autoplayEnabled: false }, 
-            history: {}, 
-            departments: ['Entwicklung', 'Marketing', 'Vertrieb', 'Design', 'HR', 'Support'],
-            moderators: [] 
-        };
+    if (!dbCache) {
+        initializeDB();
     }
+    return dbCache!;
 }
 
 export function saveDB(data: DB) {
+    dbCache = data;
     try {
         fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
     } catch (error) {

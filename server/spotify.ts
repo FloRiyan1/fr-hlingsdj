@@ -86,6 +86,7 @@ export async function checkAutoplay(io: SocketServer) {
             db.songs = db.songs.filter((s: any) => !s._shouldRemove);
             saveDB(db);
             io.emit('songs:updated');
+            console.log('Spotify Sync: Songs list updated via polling');
         }
 
         if (playback && playback.item) {
@@ -119,7 +120,8 @@ export async function checkAutoplay(io: SocketServer) {
                     },
                     progress_ms: playback.progress_ms,
                     is_playing: playback.is_playing,
-                    voterInfo: voterInfo ? { ...voterInfo, voters } : null
+                    voterInfo: voterInfo ? { ...voterInfo, voters } : null,
+                    serverTime: Date.now()
                 }
             });
         } else {
@@ -149,7 +151,8 @@ export async function checkAutoplay(io: SocketServer) {
             if (!isAlreadyInQueue) shouldQueue = true;
         } else {
             const timeLeft = playback.item.duration_ms - playback.progress_ms;
-            if (timeLeft < 20000 && !isAlreadyInQueue && playback.item.uri !== topSong.spotifyUri) {
+            // Wenn weniger als 30 Sekunden übrig sind und der Song noch nicht in der Queue ist
+            if (timeLeft < 30000 && !isAlreadyInQueue && playback.item.uri !== topSong.spotifyUri) {
                 shouldQueue = true;
             }
         }
@@ -157,17 +160,24 @@ export async function checkAutoplay(io: SocketServer) {
         if (shouldQueue) {
             isQueueing = true;
             try {
+                console.log(`Spotify Sync: Queuing next song: ${topSong.title}`);
                 await axios.post(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(topSong.spotifyUri)}`, {}, {
                     headers: { 'Authorization': `Bearer ${spotifyToken}` }
                 });
                 topSong.status = 'queued';
                 saveDB(db);
                 io.emit('songs:updated');
+            } catch (err: any) {
+                console.error('Spotify Sync: Failed to queue song:', err.response?.data || err.message);
             } finally {
                 isQueueing = false;
             }
         }
     } catch (error: any) {
-        // Silent fail
+        if (error.response?.status === 401) {
+            // Token likely expired, will retry next interval with refresh
+            return;
+        }
+        console.error('Spotify Sync Error:', error.response?.data || error.message);
     }
 }

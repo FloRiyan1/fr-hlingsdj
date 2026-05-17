@@ -87,28 +87,15 @@ export default function App() {
 
   const fetchSongs = useCallback(async () => {
     try {
-      const [songsRes, statusRes, deptRes] = await Promise.all([
-        fetch('/api/songs'),
-        fetch('/api/spotify/status'),
-        fetch('/api/departments')
-      ]);
-      if (songsRes.ok) {
-        const data = await songsRes.json();
+      const res = await fetch('/api/songs');
+      if (res.ok) {
+        const data = await res.json();
         setSongs(data.songs || []);
         setDownvotesEnabled(data.settings?.downvotesEnabled || false);
         setAutoplayEnabled(data.settings?.autoplayEnabled || false);
       }
-      if (statusRes.ok) {
-        const { connected } = await statusRes.json();
-        setIsSpotifyConnected(connected);
-      }
-      if (deptRes.ok) {
-        const data = await deptRes.json();
-        setDepartments(data);
-        if (data.length > 0 && !tempDepartment) setTempDepartment(data[0]);
-      }
-    } catch (err) { console.error('UI fetch error', err); }
-  }, [tempDepartment]);
+    } catch (err) { console.error('Songs fetch error', err); }
+  }, []);
 
   const fetchPlayback = useCallback(async () => {
     try {
@@ -132,27 +119,44 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Initial fetch
     fetchSongs();
     fetchPlayback();
+    fetch('/api/departments').then(res => res.json()).then(data => {
+      setDepartments(data);
+      if (data.length > 0) setTempDepartment(prev => prev || data[0]);
+    }).catch(() => {});
     fetch('/api/admin/users').then(res => res.json()).then(setAdminUsers).catch(() => {});
   }, [fetchSongs, fetchPlayback]);
 
+  useEffect(() => {
+    const socket = io();
+    
+    socket.on('connect', () => console.log('Socket connected'));
+    socket.on('disconnect', () => console.log('Socket disconnected'));
+    
+    socket.on('songs:updated', () => {
+      fetchSongs();
+      // Use a custom event or check state indirectly if possible, 
+      // but fetchSongs is stable now so it's fine.
+    });
+
+    socket.on('playback:updated', (data) => {
+      setCurrentPlayback(data.playback);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchSongs]);
+
+  // Separate effect for admin updates to not trigger socket reconnects
   useEffect(() => {
     if (isAdminOpen && isAuthenticatedAdmin) {
       refreshSpotifyStatus();
       fetchAdminStats();
     }
-  }, [isAdminOpen, isAuthenticatedAdmin, fetchAdminStats, refreshSpotifyStatus]);
-
-  useEffect(() => {
-    const socket = io();
-    socket.on('songs:updated', () => {
-      fetchSongs();
-      if (isAdminOpen) fetchAdminStats();
-    });
-    socket.on('playback:updated', (data) => setCurrentPlayback(data.playback));
-    return () => { socket.disconnect(); };
-  }, [fetchSongs, isAdminOpen, fetchAdminStats]);
+  }, [isAdminOpen, isAuthenticatedAdmin, refreshSpotifyStatus, fetchAdminStats]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
