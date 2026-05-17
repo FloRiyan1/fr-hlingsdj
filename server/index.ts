@@ -16,7 +16,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createHttpServer(app);
 const io = new SocketServer(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
+    allowEIO3: true,
+    transports: ['websocket', 'polling']
 });
 const PORT = 3000;
 

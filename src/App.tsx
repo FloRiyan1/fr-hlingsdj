@@ -183,11 +183,11 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (!isSocketConnected) {
-        console.log('Socket disconnected, performing fallback fetch...');
+        console.log('Socket connection inactive, using fallback polling (3s)...');
         fetchSongs();
         fetchPlayback();
       }
-    }, 10000); // Every 10 seconds
+    }, 3000); // More frequent polling if socket fails (3 seconds instead of 10)
     return () => clearInterval(interval);
   }, [isSocketConnected, fetchSongs, fetchPlayback]);
 
@@ -296,10 +296,10 @@ export default function App() {
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2 pr-2 border-r border-white/5">
               <div 
-                className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 animate-pulse'}`}
-                title={isSocketConnected ? 'Live-Verbindung aktiv' : 'Verbindung getrennt - Fallback aktiv'}
+                className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-500 animate-pulse shadow-[0_0_8px_#f59e0b]'}`}
+                title={isSocketConnected ? 'Live-Verbindung aktiv' : 'Echtzeit-Verbindung blockiert (Firewall?). Nutze Auto-Sync.'}
               />
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden xs:inline">
+              <span className={`text-[10px] font-bold uppercase tracking-widest hidden xs:inline ${isSocketConnected ? 'text-gray-400' : 'text-amber-500'}`}>
                 {isSocketConnected ? 'Live' : 'Sync'}
               </span>
             </div>
